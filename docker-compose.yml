@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  automacao-sisreg:
+    build: .
+    container_name: automacao-sisreg
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-}
+      - HEADLESS=true
+    volumes:
+      - automacao_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  automacao_data:

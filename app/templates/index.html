@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automação SISREG</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Automação SISREG</h1>
+            <p>Cruzamento de guias entre Otimus Clinic e SISREG</p>
+        </header>
+
+        <div class="card">
+            <h2>SISREG</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sisreg-user">Login</label>
+                    <input type="text" id="sisreg-user" placeholder="Ex: MED.LEIDE">
+                </div>
+                <div class="form-group">
+                    <label for="sisreg-pass">Senha</label>
+                    <input type="password" id="sisreg-pass" placeholder="Senha do SISREG">
+                </div>
+            </div>
+
+            <h2>Otimus Clinic</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="otimus-user">Login</label>
+                    <input type="text" id="otimus-user" placeholder="Ex: gustavo.weingartner">
+                </div>
+                <div class="form-group">
+                    <label for="otimus-pass">Senha</label>
+                    <input type="password" id="otimus-pass" placeholder="Senha do Otimus">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0">
+                <label for="codigo-fatura">Código da Fatura (CAPADELOTEID)</label>
+                <input type="text" id="codigo-fatura" placeholder="Ex: 12345">
+            </div>
+
+            <div class="form-actions">
+                <button id="btn-executar" class="btn btn-primary">Executar Automação</button>
+                <button id="btn-listar-faturas" class="btn btn-secondary">Listar Faturas</button>
+            </div>
+        </div>
+
+        <div id="range-card" class="card hidden">
+            <h3>Definir Intervalo de Guias</h3>
+            <p style="color:#666; font-size:0.9em; margin-bottom:12px;">
+                Total de guias encontrado. Selecione o intervalo a processar:
+            </p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="guia-inicio">Iniciar em</label>
+                    <input type="number" id="guia-inicio" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="guia-fim">Finalizar em</label>
+                    <input type="number" id="guia-fim" min="1" value="">
+                </div>
+            </div>
+            <button id="btn-confirmar-range" class="btn btn-primary">Confirmar Intervalo</button>
+        </div>
+
+        <div id="status-card" class="card hidden">
+            <h3>Status da Execução</h3>
+            <div id="status-info">
+                <span id="status-text">Aguardando...</span>
+                <span id="status-spinner" class="spinner hidden"></span>
+            </div>
+            <div id="suspend-actions" class="hidden" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="btn-suspender" class="btn btn-warning">Suspender</button>
+                <button id="btn-abortar" class="btn btn-abort">Abortar</button>
+            </div>
+        </div>
+
+        <div id="log-card" class="card hidden">
+            <div class="log-header">
+                <h3>Log</h3>
+                <button id="btn-clear-log" class="btn-small">Limpar</button>
+            </div>
+            <div id="log-output"></div>
+        </div>
+
+        <div id="resumo-card" class="card hidden">
+            <h3>Resumo</h3>
+            <div id="resumo-content"></div>
+        </div>
+
+        <div id="erro-card" class="card hidden">
+            <h3>Erro</h3>
+            <div id="erro-content" class="error-box"></div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
