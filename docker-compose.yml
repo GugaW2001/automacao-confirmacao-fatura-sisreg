@@ -1,16 +1,32 @@
 version: '3.8'
 
 services:
-  automacao-sisreg:
+  backend:
     build: .
-    container_name: automacao-sisreg
-    ports:
-      - "8000:8000"
+    container_name: automacao-sisreg-backend
     environment:
       - SECRET_KEY=${SECRET_KEY:-}
       - HEADLESS=true
     volumes:
       - automacao_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/executions')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: automacao-sisreg-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
