@@ -11,6 +11,11 @@ from . import automation
 
 router = APIRouter(prefix="/api")
 
+
+@router.get("/ping")
+def ping():
+    return {"version": "v4-FileResponse", "status": "ok"}
+
 active_connections = {}
 execution_threads = {}
 suspend_events = {}
