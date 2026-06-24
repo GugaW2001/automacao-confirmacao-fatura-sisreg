@@ -1,10 +1,9 @@
 import asyncio
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from . import database as db
 from .routes import router, set_main_loop
@@ -21,14 +20,12 @@ app.add_middleware(
 
 app.include_router(router)
 
-templates = Jinja2Templates(directory="app/templates")
-
 _BASE_DIR = os.path.dirname(__file__)
 
 
 @app.get("/")
-def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def index():
+    return HTMLResponse(open(os.path.join(_BASE_DIR, "templates", "index.html")).read())
 
 
 @app.get("/static/style.css")
