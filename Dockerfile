@@ -1,9 +1,13 @@
-FROM mcr.microsoft.com/playwright/python:latest
+FROM mcr.microsoft.com/playwright/python:v1.60.0-jammy
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Garante o navegador casado com a versão do pacote playwright instalado.
+# A imagem v1.60.0-jammy já traz o Chromium, mas isto blinda contra divergência futura.
+RUN playwright install chromium
 
 COPY . .
 
