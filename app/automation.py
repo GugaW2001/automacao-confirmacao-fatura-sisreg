@@ -56,22 +56,9 @@ def _navegar_para_faturamento(page, codigo_fatura, log_callback=None, max_retrie
 
     for tentativa in range(max_retries):
         try:
-            page.evaluate("""(() => {
-                const el = document.querySelector('a[href*="wwfaturamento"]');
-                if (el) { el.click(); return; }
-                const allLinks = document.querySelectorAll('a');
-                for (const a of allLinks) {
-                    if (a.textContent.trim() === 'Faturamento') {
-                        a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                        return;
-                    }
-                }
-            })()""")
+            page.click('text="Faturamento"', force=True)
             page.wait_for_timeout(2000)
-            page.evaluate("""(() => {
-                const el = document.querySelector('a[href*="wwfaturamento"]');
-                if (el) el.click();
-            })()""")
+            page.click('a[href*="wwfaturamento"]')
             page.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
             links = page.query_selector_all("a:has-text('Visualizar Fatura')")
@@ -291,22 +278,9 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
     try:
         _logar_otimus(otimus, otimus_user, otimus_pass, _otimus_url(unidade))
 
-        otimus.evaluate("""(() => {
-            const el = document.querySelector('a[href*="wwfaturamento"]');
-            if (el) { el.click(); return; }
-            const allLinks = document.querySelectorAll('a');
-            for (const a of allLinks) {
-                if (a.textContent.trim() === 'Faturamento') {
-                    a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                    return;
-                }
-            }
-        })()""")
+        otimus.click('text="Faturamento"', force=True)
         otimus.wait_for_timeout(2000)
-        otimus.evaluate("""(() => {
-            const el = document.querySelector('a[href*="wwfaturamento"]');
-            if (el) el.click();
-        })()""")
+        otimus.click('a[href*="wwfaturamento"]')
         otimus.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
         links = otimus.query_selector_all("a:has-text('Visualizar Fatura')")
