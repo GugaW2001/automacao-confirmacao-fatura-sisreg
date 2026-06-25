@@ -442,15 +442,8 @@ def run_automation(
             pesq_btn = page.query_selector('input[value="Pesquisar"]')
             if pesq_btn:
                 page.evaluate("(el) => el.click()", pesq_btn)
-                page.wait_for_function("""() => {
-                    const container = [...document.querySelectorAll('div')].find(
-                        e => e.scrollHeight > e.clientHeight && e.scrollHeight > 500
-                    );
-                    if (!container) return false;
-                    const ratio = container.scrollHeight / container.clientHeight;
-                    return ratio > 1.5 && document.querySelectorAll('tr[id^="Grid1ContainerRow_"]').length > 0;
-                }""", timeout=20000)
-                page.wait_for_timeout(2000)
+                page.wait_for_selector('[id^="vEDITARGRID_"]', timeout=15000)
+                page.wait_for_timeout(3000)
         except Exception as e:
             log(f"  AVISO relogin: erro ao reaplicar 'mostrar todas': {e}")
 
@@ -515,15 +508,8 @@ def run_automation(
         pesq_btn = otimus.query_selector('input[value="Pesquisar"]')
         if pesq_btn:
             otimus.evaluate("(el) => el.click()", pesq_btn)
-            otimus.wait_for_function("""() => {
-                const container = [...document.querySelectorAll('div')].find(
-                    e => e.scrollHeight > e.clientHeight && e.scrollHeight > 500
-                );
-                if (!container) return false;
-                const ratio = container.scrollHeight / container.clientHeight;
-                return ratio > 1.5 && document.querySelectorAll('tr[id^="Grid1ContainerRow_"]').length > 0;
-            }""", timeout=20000)
-            otimus.wait_for_timeout(2000)
+            otimus.wait_for_selector('[id^="vEDITARGRID_"]', timeout=15000)
+            otimus.wait_for_timeout(3000)
         else:
             log("  AVISO: Botao Pesquisar nao encontrado, continuando sem recarregar grid")
     except Exception as e:
