@@ -56,7 +56,7 @@ def _navegar_para_faturamento(page, codigo_fatura, log_callback=None, max_retrie
 
     for tentativa in range(max_retries):
         try:
-            page.evaluate("""() => {
+            page.evaluate("""(() => {
                 const el = document.querySelector('a[href*="wwfaturamento"]');
                 if (el) { el.click(); return; }
                 const allLinks = document.querySelectorAll('a');
@@ -66,12 +66,12 @@ def _navegar_para_faturamento(page, codigo_fatura, log_callback=None, max_retrie
                         return;
                     }
                 }
-            }()""")
+            })()""")
             page.wait_for_timeout(2000)
-            page.evaluate("""() => {
+            page.evaluate("""(() => {
                 const el = document.querySelector('a[href*="wwfaturamento"]');
                 if (el) el.click();
-            }()""")
+            })()""")
             page.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
             links = page.query_selector_all("a:has-text('Visualizar Fatura')")
@@ -291,7 +291,7 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
     try:
         _logar_otimus(otimus, otimus_user, otimus_pass, _otimus_url(unidade))
 
-        otimus.evaluate("""() => {
+        otimus.evaluate("""(() => {
             const el = document.querySelector('a[href*="wwfaturamento"]');
             if (el) { el.click(); return; }
             const allLinks = document.querySelectorAll('a');
@@ -301,12 +301,12 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
                     return;
                 }
             }
-        }()""")
+        })()""")
         otimus.wait_for_timeout(2000)
-        otimus.evaluate("""() => {
+        otimus.evaluate("""(() => {
             const el = document.querySelector('a[href*="wwfaturamento"]');
             if (el) el.click();
-        }()""")
+        })()""")
         otimus.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
         links = otimus.query_selector_all("a:has-text('Visualizar Fatura')")
