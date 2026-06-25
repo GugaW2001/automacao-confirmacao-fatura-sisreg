@@ -32,7 +32,7 @@ def _logar_otimus(page, usuario, senha, url, timeout=15000):
     page.click("input[name=BUTTON1]")
     page.wait_for_load_state("domcontentloaded")
     try:
-        page.wait_for_selector("text=Faturamento", timeout=10000)
+        page.wait_for_selector("a[href*='wwfaturamento']", timeout=15000)
     except Exception:
         texto = page.inner_text("body")
         erros = ["invalido", "incorreto", "negado", "erro"]
@@ -42,7 +42,7 @@ def _logar_otimus(page, usuario, senha, url, timeout=15000):
         # Tentar recarregar e verificar novamente
         try:
             page.goto(url, wait_until="domcontentloaded")
-            page.wait_for_selector("text=Faturamento", timeout=15000)
+            page.wait_for_selector("a[href*='wwfaturamento']", timeout=15000)
         except Exception:
             raise RuntimeError(f"Falha no login Otimus: página de destino não encontrada")
 
@@ -56,9 +56,22 @@ def _navegar_para_faturamento(page, codigo_fatura, log_callback=None, max_retrie
 
     for tentativa in range(max_retries):
         try:
-            page.click("text=Faturamento")
-            page.wait_for_timeout(1000)
-            page.click('a[href*="wwfaturamento"]')
+            page.evaluate("""() => {
+                const el = document.querySelector('a[href*="wwfaturamento"]');
+                if (el) { el.click(); return; }
+                const allLinks = document.querySelectorAll('a');
+                for (const a of allLinks) {
+                    if (a.textContent.trim() === 'Faturamento') {
+                        a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                        return;
+                    }
+                }
+            }()""")
+            page.wait_for_timeout(2000)
+            page.evaluate("""() => {
+                const el = document.querySelector('a[href*="wwfaturamento"]');
+                if (el) el.click();
+            }()""")
             page.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
             links = page.query_selector_all("a:has-text('Visualizar Fatura')")
@@ -122,7 +135,7 @@ def _coletar_guias(page):
         }
         if (!scrollEl) scrollEl = document.documentElement;
         let lastPos = 0, attempt = 0;
-        const MAX_ATTEMPTS = 5;
+        const MAX_ATTEMPTS = 10;
         return new Promise(resolve => {
             function scrollAndCollect() {
                 document.querySelectorAll('tr[id^="Grid1ContainerRow_"]').forEach(tr => {
@@ -145,11 +158,11 @@ def _coletar_guias(page):
                 } else {
                     attempt++;
                 }
-                if (attempt >= MAX_ATTEMPTS || newCount >= 5000) {
+                if (attempt >= MAX_ATTEMPTS || newCount >= 10000) {
                     resolve(data);
                     return;
                 }
-                scrollEl.scrollTop = scrollEl.scrollTop + scrollEl.clientHeight * 0.8;
+                scrollEl.scrollTop = scrollEl.scrollTop + scrollEl.clientHeight * 0.6;
                 setTimeout(scrollAndCollect, 800);
             }
             scrollAndCollect();
@@ -278,9 +291,22 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
     try:
         _logar_otimus(otimus, otimus_user, otimus_pass, _otimus_url(unidade))
 
-        otimus.click("text=Faturamento")
-        otimus.wait_for_timeout(1000)
-        otimus.click('a[href*="wwfaturamento"]')
+        otimus.evaluate("""() => {
+            const el = document.querySelector('a[href*="wwfaturamento"]');
+            if (el) { el.click(); return; }
+            const allLinks = document.querySelectorAll('a');
+            for (const a of allLinks) {
+                if (a.textContent.trim() === 'Faturamento') {
+                    a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                    return;
+                }
+            }
+        }()""")
+        otimus.wait_for_timeout(2000)
+        otimus.evaluate("""() => {
+            const el = document.querySelector('a[href*="wwfaturamento"]');
+            if (el) el.click();
+        }()""")
         otimus.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
 
         links = otimus.query_selector_all("a:has-text('Visualizar Fatura')")
@@ -438,11 +464,19 @@ def run_automation(
                 return options[options.length - 1].value;
             }""")
             page.select_option("#vQTDREGISTROS", melhor_opcao)
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(500)
             pesq_btn = page.query_selector('input[value="Pesquisar"]')
             if pesq_btn:
                 page.evaluate("(el) => el.click()", pesq_btn)
-                page.wait_for_selector('[id^="vEDITARGRID_"]', timeout=15000)
+                page.wait_for_function("""() => {
+                    const container = [...document.querySelectorAll('div')].find(
+                        e => e.scrollHeight > e.clientHeight && e.scrollHeight > 500
+                    );
+                    if (!container) return false;
+                    const ratio = container.scrollHeight / container.clientHeight;
+                    return ratio > 1.5 && document.querySelectorAll('tr[id^="Grid1ContainerRow_"]').length > 0;
+                }""", timeout=20000)
+                page.wait_for_timeout(2000)
         except Exception as e:
             log(f"  AVISO relogin: erro ao reaplicar 'mostrar todas': {e}")
 
@@ -501,17 +535,21 @@ def run_automation(
             return options[options.length - 1].value;
         }""")
         otimus.select_option("#vQTDREGISTROS", melhor_opcao)
-        otimus.wait_for_timeout(1000)
+        otimus.wait_for_timeout(500)
 
         # Clicar Pesquisar para recarregar grid com todas as guias
         pesq_btn = otimus.query_selector('input[value="Pesquisar"]')
         if pesq_btn:
             otimus.evaluate("(el) => el.click()", pesq_btn)
             otimus.wait_for_function("""() => {
-                const rows = document.querySelectorAll('tr[id^="Grid1ContainerRow_"]');
-                return rows.length > 0;
-            }""", timeout=15000)
-            otimus.wait_for_timeout(1000)
+                const container = [...document.querySelectorAll('div')].find(
+                    e => e.scrollHeight > e.clientHeight && e.scrollHeight > 500
+                );
+                if (!container) return false;
+                const ratio = container.scrollHeight / container.clientHeight;
+                return ratio > 1.5 && document.querySelectorAll('tr[id^="Grid1ContainerRow_"]').length > 0;
+            }""", timeout=20000)
+            otimus.wait_for_timeout(2000)
         else:
             log("  AVISO: Botao Pesquisar nao encontrado, continuando sem recarregar grid")
     except Exception as e:
@@ -606,10 +644,10 @@ def run_automation(
                 row_num = _micro_ajuste_scroll(otimus, numero_guia_alvo)
             if not row_num:
                 raise Exception(f"Guia {numero_guia_alvo} nao encontrada no DOM apos scroll")
-            for _ in range(15):
+            for _ in range(30):
                 if otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]'):
                     break
-                otimus.wait_for_timeout(50)
+                otimus.wait_for_timeout(100)
             edit_btn = otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]')
             if not edit_btn:
                 raise Exception(f"Botao vEDITARGRID_{row_num} nao encontrado apos scroll")
@@ -627,10 +665,10 @@ def run_automation(
                     row_num = _micro_ajuste_scroll(otimus, numero_guia_alvo)
                 if not row_num:
                     raise Exception(f"Guia {numero_guia_alvo} nao encontrada na segunda tentativa")
-                for _ in range(15):
+                for _ in range(30):
                     if otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]'):
                         break
-                    otimus.wait_for_timeout(50)
+                    otimus.wait_for_timeout(100)
                 edit_btn = otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]')
                 if edit_btn:
                     edit_btn.evaluate("(el) => { el.scrollIntoViewIfNeeded(); el.click(); el.dispatchEvent(new Event('click', { bubbles: true })) }")
@@ -739,6 +777,10 @@ def run_automation(
             ok_btn = sisreg.query_selector("input[name=btnOK]")
             if ok_btn:
                 sisreg.click("input[name=btnOK]")
+                try:
+                    sisreg.wait_for_load_state("networkidle", timeout=15000)
+                except Exception:
+                    pass
                 sisreg.wait_for_timeout(500)
             else:
                 log(f"  ERRO: Botao OK nao encontrado no SISREG para CNS {matricula}")
@@ -804,7 +846,11 @@ def run_automation(
                         confirm_btn = sisreg.query_selector("input[name=btnConfirmar]")
                         if confirm_btn:
                             sisreg.click("input[name=btnConfirmar]")
-                            sisreg.wait_for_timeout(800)
+                            try:
+                                sisreg.wait_for_load_state("networkidle", timeout=15000)
+                            except Exception:
+                                pass
+                            sisreg.wait_for_timeout(500)
                             sucessos += 1
                             log(f">>> GUIA {i}: SUCESSO - Guia {numero_guia} registrada em {len(solicitacoes_preencher)} solicitação(ões) <<<")
                         else:
@@ -822,6 +868,7 @@ def run_automation(
             else:
                 motivo = f"Retorno SISREG não reconhecido para CNS {matricula}"
                 log(f"  ERRO: {motivo}")
+                log(f"  DEBUG body_text[:500]: {body_text[:500]}")
                 falhas[numero_guia] = motivo
                 erros += 1
 
