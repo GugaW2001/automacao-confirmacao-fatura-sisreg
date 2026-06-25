@@ -32,7 +32,7 @@ def _logar_otimus(page, usuario, senha, url, timeout=15000):
     page.click("input[name=BUTTON1]")
     page.wait_for_load_state("domcontentloaded")
     try:
-        page.wait_for_selector("a[href*='wwfaturamento']", timeout=15000)
+        page.wait_for_selector("#SIDEBARDIV_MPAGE", timeout=15000)
     except Exception:
         texto = page.inner_text("body")
         erros = ["invalido", "incorreto", "negado", "erro"]
@@ -42,7 +42,7 @@ def _logar_otimus(page, usuario, senha, url, timeout=15000):
         # Tentar recarregar e verificar novamente
         try:
             page.goto(url, wait_until="domcontentloaded")
-            page.wait_for_selector("a[href*='wwfaturamento']", timeout=15000)
+            page.wait_for_selector("#SIDEBARDIV_MPAGE", timeout=15000)
         except Exception:
             raise RuntimeError(f"Falha no login Otimus: página de destino não encontrada")
 
