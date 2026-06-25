@@ -9,9 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # A imagem v1.60.0-jammy já traz o Chromium, mas isto blinda contra divergência futura.
 RUN playwright install chromium
 
-ARG CACHEBUST
-RUN echo "Build cache: $CACHEBUST"
-
 COPY . .
 
 RUN mkdir -p /app/data
