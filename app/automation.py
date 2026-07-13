@@ -213,7 +213,6 @@ def _restaurar_grid_otimus(page, codigo_fatura, log_callback=None):
     def _log(msg):
         if log_callback:
             log_callback(msg)
-        print(msg, flush=True)
 
     try:
         voltar_btn = page.query_selector("input[name=BUTTON26]")
@@ -266,7 +265,6 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
     def log(msg):
         if log_callback:
             log_callback(msg)
-        print(msg, flush=True)
 
     log("Otimus: Abrindo navegador e acessando sistema...")
     p = sync_playwright().start()
@@ -346,7 +344,6 @@ def run_automation(
     def log(msg):
         if log_callback:
             log_callback(msg)
-        print(msg, flush=True)
 
     sucessos = 0
     erros = 0
@@ -385,7 +382,7 @@ def run_automation(
             return False, ""
 
     def _logar_sisreg(page):
-        page.goto("https://sisregiii.saude.gov.br/cgi-bin/index?logout=1")
+        page.goto("https://sisregiii.saude.gov.br/cgi-bin/index?logout=1", wait_until="domcontentloaded", timeout=60000)
         resolver_tspd(page, context)
         page.wait_for_selector("input#usuario", timeout=15000)
         page.fill("input#usuario", sisreg_user)
@@ -399,7 +396,7 @@ def run_automation(
 
     def relogin_sisreg(page):
         _logar_sisreg(page)
-        page.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas")
+        page.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
         page.wait_for_selector("input[name=cns_paciente]", timeout=15000)
         log("  SISREG: Re-logado")
 
@@ -443,7 +440,7 @@ def run_automation(
             if pesq_btn:
                 page.evaluate("(el) => el.click()", pesq_btn)
                 page.wait_for_selector('[id^="vEDITARGRID_"]', timeout=15000)
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(1000)
         except Exception as e:
             log(f"  AVISO relogin: erro ao reaplicar 'mostrar todas': {e}")
 
@@ -453,16 +450,25 @@ def run_automation(
     log("--- [1/4] SISREG: Fazendo login ---")
     sisreg = context.new_page()
     sisreg.on("dialog", lambda d: d.accept())
-    try:
-        _logar_sisreg(sisreg)
-        sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas")
-        sisreg.wait_for_selector("input[name=cns_paciente]", timeout=15000)
-        log("SISREG: Logado com sucesso")
-    except Exception as e:
-        log(f"ERRO NO LOGIN SISREG: {e}")
-        browser.close()
-        p.stop()
-        return {"success": False, "error": f"Falha no login SISREG: {e}"}
+    sisreg.set_default_navigation_timeout(120000)
+    sisreg_login_ok = False
+    for tentativa_login in range(2):
+        try:
+            _logar_sisreg(sisreg)
+            sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
+            sisreg.wait_for_selector("input[name=cns_paciente]", timeout=15000)
+            log("SISREG: Logado com sucesso")
+            sisreg_login_ok = True
+            break
+        except Exception as e:
+            log(f"  AVISO (tentativa {tentativa_login+1}/2): Falha no login SISREG: {e}")
+            if tentativa_login == 0:
+                log("  Tentando novamente...")
+            else:
+                log(f"ERRO NO LOGIN SISREG: {e}")
+                browser.close()
+                p.stop()
+                return {"success": False, "error": f"Falha no login SISREG após tentativas: {e}"}
 
     # ============================================================
     # 2. OTIMUS - LOGIN E SELEÇÃO DE FATURA
@@ -509,7 +515,7 @@ def run_automation(
         if pesq_btn:
             otimus.evaluate("(el) => el.click()", pesq_btn)
             otimus.wait_for_selector('[id^="vEDITARGRID_"]', timeout=15000)
-            otimus.wait_for_timeout(3000)
+            otimus.wait_for_timeout(1000)
         else:
             log("  AVISO: Botao Pesquisar nao encontrado, continuando sem recarregar grid")
     except Exception as e:
@@ -561,8 +567,10 @@ def run_automation(
             break
 
         # Verificar suspensão
+        foi_suspenso = False
         if suspend_event is not None:
             while suspend_event.is_set():
+                foi_suspenso = True
                 if abort_event is not None and abort_event.is_set():
                     log("🛑 Execução abortada pelo usuário!")
                     break
@@ -570,7 +578,7 @@ def run_automation(
                 time.sleep(3)
             if abort_event is not None and abort_event.is_set():
                 break
-            if idx > 0:
+            if foi_suspenso:
                 log("▶️ Execução retomada!")
 
         i = idx + 1
@@ -578,16 +586,21 @@ def run_automation(
         log(f"\n--- GUIA {i}/{total_guias} (guia #{numero_guia_alvo}) ---")
 
         # ----- VERIFICAR SESSÃO OTIMUS -----
-        if not otimus_logado(otimus):
-            log(f"  GUIA {i}: Sessão Otimus expirada. Re-logando...")
-            relogin_otimus(otimus, codigo_fatura)
-            guias = _coletar_guias(otimus)
-            total_guias = len(guias)
-            if idx >= total_guias:
-                log(f"  ERRO: Guia {i} nao encontrada apos relogin")
-                erros += 1
-                continue
-            numero_guia_alvo = guias[idx]["guia"]
+        try:
+            if not otimus_logado(otimus):
+                log(f"  GUIA {i}: Sessão Otimus expirada. Re-logando...")
+                relogin_otimus(otimus, codigo_fatura)
+                guias = _coletar_guias(otimus)
+                total_guias = len(guias)
+                if idx >= total_guias:
+                    log(f"  ERRO: Guia {i} nao encontrada apos relogin")
+                    erros += 1
+                    continue
+                numero_guia_alvo = guias[idx]["guia"]
+        except Exception as e:
+            log(f"  ERRO: Falha ao restaurar sessão Otimus: {e}")
+            erros += 1
+            continue
 
         # ----- EXTRAIR PROCEDIMENTO DA GRID -----
         procedimento_otimus = guia.get("servico", "")
@@ -598,16 +611,13 @@ def run_automation(
         tem_vMATRICULAGUIA = False
         try:
             _scroll_para_linha(otimus, idx, total_guias)
-            otimus.wait_for_timeout(200)
+            otimus.wait_for_timeout(50)
             row_num = _encontrar_slot_da_guia(otimus, numero_guia_alvo)
             if not row_num:
                 row_num = _micro_ajuste_scroll(otimus, numero_guia_alvo)
             if not row_num:
                 raise Exception(f"Guia {numero_guia_alvo} nao encontrada no DOM apos scroll")
-            for _ in range(30):
-                if otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]'):
-                    break
-                otimus.wait_for_timeout(100)
+            otimus.wait_for_selector(f'[id="vEDITARGRID_{row_num}"]', timeout=3000)
             edit_btn = otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]')
             if not edit_btn:
                 raise Exception(f"Botao vEDITARGRID_{row_num} nao encontrado apos scroll")
@@ -617,18 +627,15 @@ def run_automation(
         except Exception as e:
             erro_edicao = str(e)
             try:
-                otimus.wait_for_timeout(500)
-                _scroll_para_linha(otimus, idx, total_guias)
                 otimus.wait_for_timeout(200)
+                _scroll_para_linha(otimus, idx, total_guias)
+                otimus.wait_for_timeout(50)
                 row_num = _encontrar_slot_da_guia(otimus, numero_guia_alvo)
                 if not row_num:
                     row_num = _micro_ajuste_scroll(otimus, numero_guia_alvo)
                 if not row_num:
                     raise Exception(f"Guia {numero_guia_alvo} nao encontrada na segunda tentativa")
-                for _ in range(30):
-                    if otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]'):
-                        break
-                    otimus.wait_for_timeout(100)
+                otimus.wait_for_selector(f'[id="vEDITARGRID_{row_num}"]', timeout=3000)
                 edit_btn = otimus.query_selector(f'[id="vEDITARGRID_{row_num}"]')
                 if edit_btn:
                     edit_btn.evaluate("(el) => { el.scrollIntoViewIfNeeded(); el.click(); el.dispatchEvent(new Event('click', { bubbles: true })) }")
@@ -701,15 +708,20 @@ def run_automation(
             continue
 
         # ----- VERIFICAR SESSÃO SISREG -----
-        if not sisreg_logado(sisreg):
-            log(f"  GUIA {i}: Sessão SISREG expirada. Re-logando...")
-            relogin_sisreg(sisreg)
+        try:
+            if not sisreg_logado(sisreg):
+                log(f"  GUIA {i}: Sessão SISREG expirada. Re-logando...")
+                relogin_sisreg(sisreg)
+        except Exception as e:
+            log(f"  ERRO: Falha ao restaurar sessão SISREG: {e}")
+            erros += 1
+            continue
 
         # ----- CONSULTAR NO SISREG -----
         try:
             for tentativa_sisreg in range(2):
                 try:
-                    sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=20000)
+                    sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
                     break
                 except Exception:
                     if tentativa_sisreg == 0:
@@ -723,25 +735,21 @@ def run_automation(
                 relogin_sisreg(sisreg)
 
             sisreg.fill("input[name=cns_paciente]", matricula)
-            sleep(sisreg, 50, 150)
+            sleep(sisreg, 20, 50)
             sisreg.select_option("select[name=ups]", codigo_ups)
-            sleep(sisreg, 50, 150)
+            sleep(sisreg, 20, 50)
             sisreg.select_option("select[name=cmbTipoOperacao]", "Confirma")
-            sleep(sisreg, 50, 150)
+            sleep(sisreg, 20, 50)
 
             chk = sisreg.query_selector("input[name=chkboxExibirProcedimentos]")
             if chk and not chk.is_checked():
                 sisreg.click("input[name=chkboxExibirProcedimentos]")
-                sleep(sisreg, 50, 150)
+                sleep(sisreg, 20, 50)
 
             ok_btn = sisreg.query_selector("input[name=btnOK]")
             if ok_btn:
                 sisreg.click("input[name=btnOK]")
-                try:
-                    sisreg.wait_for_load_state("networkidle", timeout=15000)
-                except Exception:
-                    pass
-                sisreg.wait_for_timeout(500)
+                sisreg.wait_for_load_state("domcontentloaded", timeout=10000)
             else:
                 log(f"  ERRO: Botao OK nao encontrado no SISREG para CNS {matricula}")
                 erros += 1
@@ -798,7 +806,7 @@ def run_automation(
                     for sol in solicitacoes_preencher:
                         try:
                             sisreg.fill(f'input[name="Chave{sol["idx"]}"]', numero_guia)
-                            sleep(sisreg, 50, 150)
+                            sleep(sisreg, 20, 50)
                         except Exception:
                             log(f"  ERRO: Falha ao preencher Chave{sol['idx']}")
 
@@ -806,11 +814,7 @@ def run_automation(
                         confirm_btn = sisreg.query_selector("input[name=btnConfirmar]")
                         if confirm_btn:
                             sisreg.click("input[name=btnConfirmar]")
-                            try:
-                                sisreg.wait_for_load_state("networkidle", timeout=15000)
-                            except Exception:
-                                pass
-                            sisreg.wait_for_timeout(500)
+                            sisreg.wait_for_load_state("domcontentloaded", timeout=10000)
                             sucessos += 1
                             log(f">>> GUIA {i}: SUCESSO - Guia {numero_guia} registrada em {len(solicitacoes_preencher)} solicitação(ões) <<<")
                         else:

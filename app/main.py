@@ -1,4 +1,6 @@
 import asyncio
+import io
+import sys
 import os
 
 from fastapi import FastAPI
@@ -7,6 +9,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 from . import database as db
 from .routes import router, set_main_loop
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 app = FastAPI(title="Automação SISREG", version="2.0.0")
 
@@ -25,7 +32,7 @@ _BASE_DIR = os.path.dirname(__file__)
 
 @app.get("/")
 def index():
-    return HTMLResponse(open(os.path.join(_BASE_DIR, "templates", "index.html")).read())
+    return HTMLResponse(open(os.path.join(_BASE_DIR, "templates", "index.html"), encoding='utf-8').read())
 
 
 @app.get("/static/style.css")
