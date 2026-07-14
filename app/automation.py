@@ -56,7 +56,8 @@ def _navegar_para_faturamento(page, codigo_fatura, log_callback=None, max_retrie
 
     for tentativa in range(max_retries):
         try:
-            page.click('text="Faturamento"', force=True)
+            page.wait_for_selector('text="Faturamento"', state="visible", timeout=10000)
+            page.click('text="Faturamento"')
             page.wait_for_timeout(2000)
             page.click('a[href*="wwfaturamento"]')
             page.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
@@ -276,7 +277,8 @@ def listar_faturas(otimus_user, otimus_pass, unidade="palhoca", log_callback=Non
     try:
         _logar_otimus(otimus, otimus_user, otimus_pass, _otimus_url(unidade))
 
-        otimus.click('text="Faturamento"', force=True)
+        otimus.wait_for_selector('text="Faturamento"', state="visible", timeout=10000)
+        otimus.click('text="Faturamento"')
         otimus.wait_for_timeout(2000)
         otimus.click('a[href*="wwfaturamento"]')
         otimus.wait_for_selector("a:has-text('Visualizar Fatura')", timeout=20000)
@@ -382,22 +384,39 @@ def run_automation(
             return False, ""
 
     def _logar_sisreg(page):
-        page.goto("https://sisregiii.saude.gov.br/cgi-bin/index?logout=1", wait_until="domcontentloaded", timeout=60000)
+        page.goto("https://sisregiii.saude.gov.br/cgi-bin/index?logout=1", wait_until="domcontentloaded", timeout=30000)
         resolver_tspd(page, context)
-        page.wait_for_selector("input#usuario", timeout=15000)
+        log("Acessou site do SISREG. Aguardando login...")
         page.fill("input#usuario", sisreg_user)
-        page.wait_for_selector("input#senha", timeout=10000)
         page.fill("input#senha", sisreg_pass)
         page.click("input[name=entrar]")
-        resolver_tspd(page, context)
+        page.wait_for_load_state("domcontentloaded", timeout=30000)
         tem_erro, motivo = _sisreg_tem_erro_login(page)
         if tem_erro:
             raise RuntimeError(f"Falha no login SISREG: {motivo}")
 
+    def _navegar_para_confirmacao_agenda(page):
+        try:
+            consultas_link = page.query_selector("a:has-text('CONSULTAS')")
+            if not consultas_link:
+                consultas_link = page.query_selector("a:has-text('Consultas'), a:has-text('CONSULTA')")
+            if consultas_link:
+                consultas_link.hover()
+                page.wait_for_timeout(300)
+                primeiro_item = page.query_selector("a:has-text('IMPRESSAO'), a:has-text('CONFIRMAÇÃO'), a:has-text('CONFIRMACAO')")
+                if primeiro_item:
+                    primeiro_item.click()
+                    page.wait_for_selector("input[name=cns_paciente]", timeout=15000)
+                    return True
+        except Exception:
+            pass
+        page.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_selector("input[name=cns_paciente]", timeout=15000)
+        return False
+
     def relogin_sisreg(page):
         _logar_sisreg(page)
-        page.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_selector("input[name=cns_paciente]", timeout=15000)
+        _navegar_para_confirmacao_agenda(page)
         log("  SISREG: Re-logado")
 
     def otimus_logado(page):
@@ -455,8 +474,7 @@ def run_automation(
     for tentativa_login in range(2):
         try:
             _logar_sisreg(sisreg)
-            sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
-            sisreg.wait_for_selector("input[name=cns_paciente]", timeout=15000)
+            _navegar_para_confirmacao_agenda(sisreg)
             log("SISREG: Logado com sucesso")
             sisreg_login_ok = True
             break
@@ -719,20 +737,13 @@ def run_automation(
 
         # ----- CONSULTAR NO SISREG -----
         try:
-            for tentativa_sisreg in range(2):
-                try:
-                    sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=60000)
-                    break
-                except Exception:
-                    if tentativa_sisreg == 0:
-                        log(f"  GUIA {i}: SISREG lento, re-logando...")
-                        relogin_sisreg(sisreg)
-                    else:
-                        raise
-            sisreg.wait_for_selector("input[name=cns_paciente], input#usuario", timeout=15000)
-            if sisreg.query_selector("input#usuario"):
-                log(f"  GUIA {i}: Sessão SISREG expirada, re-logando...")
-                relogin_sisreg(sisreg)
+            try:
+                sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=15000)
+            except Exception:
+                log(f"  GUIA {i}: SISREG lento, tentando recuperar...")
+                sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/index?logout=1", wait_until="domcontentloaded", timeout=15000)
+                sisreg.goto("https://sisregiii.saude.gov.br/cgi-bin/cons_agendas", wait_until="domcontentloaded", timeout=15000)
+            sisreg.wait_for_selector("input[name=cns_paciente]", timeout=10000)
 
             sisreg.fill("input[name=cns_paciente]", matricula)
             sleep(sisreg, 20, 50)

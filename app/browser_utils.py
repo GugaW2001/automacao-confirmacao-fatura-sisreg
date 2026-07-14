@@ -136,6 +136,11 @@ def resolver_tspd(page, context, timeout=30):
     """Aguarda o desafio TSPD do F5 completar.
     Se detectar pagina de rejeicao, clica Go Back e aguarda os cookies do F5.
     """
+    cookies = context.cookies()
+    nomes = [c["name"] for c in cookies]
+    if any("TSPD_101" in n for n in nomes):
+        return True
+
     import time
     start = time.time()
 
@@ -164,12 +169,9 @@ def resolver_tspd(page, context, timeout=30):
             page.wait_for_timeout(3000)
             continue
 
-        # Se tem o formulario de login mas ainda nao tem cookie TSPD,
-        # o desafio pode estar rodando em background
+        # Se tem o formulario de login visivel, o TSPD ja resolveu
         if page.is_visible("input#usuario", timeout=2000):
-            print("  TSPD: aguardando desafio completar...", flush=True)
-            page.wait_for_timeout(2000)
-            continue
+            return True
 
         page.wait_for_timeout(1000)
 
